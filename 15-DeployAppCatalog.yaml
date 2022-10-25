@@ -1,0 +1,163 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo2
+  labels:
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: catalog
+  namespace: demo2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: catalog
+  name: catalog
+  namespace: demo2
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: catalog
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: catalog
+    version: v1
+  name: catalog
+  namespace: demo2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: catalog
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: catalog
+        version: v1
+    spec:
+      serviceAccountName: catalog
+      containers:
+      - env:
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: istioinaction/catalog:latest
+        imagePullPolicy: IfNotPresent
+        name: catalog
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        securityContext:
+          privileged: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webapp
+  namespace: demo2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: webapp
+  name: webapp
+  namespace: demo2
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: webapp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: webapp
+  name: webapp
+  namespace: demo2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      serviceAccountName: webapp
+      containers:
+      - env:
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: CATALOG_SERVICE_HOST
+          value: catalog.demo2
+        - name: CATALOG_SERVICE_PORT
+          value: "80"
+        - name: FORUM_SERVICE_HOST
+          value: forum.demo2
+        - name: FORUM_SERVICE_PORT
+          value: "80"
+        image: istioinaction/webapp:latest
+        imagePullPolicy: IfNotPresent
+        name: webapp
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        securityContext:
+          privileged: false
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: demo2-gateway
+  namespace: demo2
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "demo2.getlink.io"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: webapp-virtualservice
+  namespace: demo2
+spec:
+  hosts:
+  - "demo2.getlink.io"
+  gateways:
+  - demo2-gateway
+  http:
+  - route:
+    - destination:
+        host: webapp
+        port:
+          number: 80

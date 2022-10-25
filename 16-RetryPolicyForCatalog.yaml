@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: catalog
+  namespace: demo2
+spec:
+  hosts:
+  - catalog
+  http:
+  - route:
+    - destination:
+        host: catalog
+    retries:
+      attempts: 10
+      retryOn: 5xx
+      perTryTimeout: 2s

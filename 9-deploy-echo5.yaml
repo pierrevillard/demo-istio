@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo5
+  namespace: demo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: echo2
+      version: v2
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: echo2
+        version: v2
+    spec:
+      containers:
+      - env:
+        - name: TEXT
+          value: echo5
+        - name: NEXT
+          value: echo3:8080
+        image: rg.fr-par.scw.cloud/ilkilabs/web-echo:v1
+        name: world
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
